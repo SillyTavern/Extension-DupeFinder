@@ -1,6 +1,7 @@
 #dupeFinderPanel.open {
     display: flex;
-    height: 100%;
+    height: 100vh;
+    height: 100svh;
 }
 
 #dupeFinderPanel {
