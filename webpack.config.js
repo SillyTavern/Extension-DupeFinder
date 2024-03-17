@@ -6,6 +6,7 @@ module.exports = {
     output: {
         path: path.join(__dirname, 'dist/'),
         filename: `index.js`,
+        publicPath: '/scripts/extensions/third-party/Extension-DupeFinder/dist/',
     },
     module: {
         rules: [
@@ -24,7 +25,7 @@ module.exports = {
         ],
     },
     optimization: {
-        minimize: true,
+        minimize: false,
         minimizer: [new TerserPlugin({
             extractComments: false,
         })],
