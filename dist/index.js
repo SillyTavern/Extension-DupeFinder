@@ -1124,7 +1124,9 @@ function PanelHeader() {
 const {
   selectCharacterById,
   getThumbnailUrl,
-  timestampToMoment
+  timestampToMoment,
+  eventSource,
+  event_types
 } = SillyTavern.getContext();
 const SLIDER_VALUE_KEY = 'DupeFinder_similarity_threshold';
 function PanelBody() {
@@ -1134,8 +1136,24 @@ function PanelBody() {
   const [sliderValue, setSliderValue] = react.useState(Number(initialSliderValue));
   const [worker, setWorker] = react.useState(null);
   const [progress, setProgress] = react.useState(null);
+  const [deletedCharacters, setDeletedCharacters] = react.useState([]);
+  react.useEffect(() => {
+    eventSource.on(event_types.CHARACTER_DELETED, characterDeleted);
+    return () => {
+      eventSource.removeListener(event_types.CHARACTER_DELETED, characterDeleted);
+    };
+  });
+  function characterDeleted(args) {
+    var _args$character;
+    const avatar = args === null || args === void 0 || (_args$character = args.character) === null || _args$character === void 0 ? void 0 : _args$character.avatar;
+    if (!avatar) {
+      return;
+    }
+    setDeletedCharacters(value => [...value, avatar]);
+  }
   function refresh() {
     setProgress(0);
+    setDeletedCharacters([]);
     const characters = SillyTavern.getContext().characters.slice();
     worker.postMessage({
       threshold: sliderValue,
@@ -1247,11 +1265,13 @@ function PanelBody() {
         value: progress,
         max: "100"
       })]
-    }), Array.isArray(data) && data.length === 0 && /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
+    }), progress == null && Array.isArray(data) && data.length === 0 && /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
+      className: "textAlignCenter",
       children: /*#__PURE__*/(0,jsx_runtime.jsx)("h3", {
         children: "No characters found"
       })
-    }), Array.isArray(data) && data.length > 0 && data.filter(x => Array.isArray(x) && x.length > 1).length === 0 && /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
+    }), progress == null && Array.isArray(data) && data.length > 0 && data.filter(x => Array.isArray(x) && x.length > 1).length === 0 && /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
+      className: "textAlignCenter",
       children: /*#__PURE__*/(0,jsx_runtime.jsx)("h3", {
         children: "No similar characters found"
       })
@@ -1261,7 +1281,7 @@ function PanelBody() {
           class: "flex-container flexFlowColumn",
           children: group.map((character, index) => {
             return /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
-              className: "flex-container alignItemsCenter flexGap10",
+              className: "flex-container alignItemsCenter flexGap10" + (deletedCharacters.includes(character.avatar) ? " grayscale opacity50p" : ""),
               children: [/*#__PURE__*/(0,jsx_runtime.jsx)("div", {
                 children: /*#__PURE__*/(0,jsx_runtime.jsx)("div", {
                   className: "avatar",
@@ -1287,13 +1307,21 @@ function PanelBody() {
                     children: ["Last chat: ", timestampToMoment(character.date_last_chat).toString('LL LT')]
                   })]
                 })]
-              }), /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
+              }), !deletedCharacters.includes(character.avatar) && /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
                 className: "menu_button menu_button_icon",
                 onClick: () => onSelectCharacterClick(character),
                 children: [/*#__PURE__*/(0,jsx_runtime.jsx)("i", {
                   class: "fa-solid fa-eye"
                 }), /*#__PURE__*/(0,jsx_runtime.jsx)("span", {
                   children: "View"
+                })]
+              }), deletedCharacters.includes(character.avatar) && /*#__PURE__*/(0,jsx_runtime.jsxs)("div", {
+                children: [/*#__PURE__*/(0,jsx_runtime.jsx)("i", {
+                  class: "fa-solid fa-trash"
+                }), /*#__PURE__*/(0,jsx_runtime.jsx)("span", {
+                  children: "\xA0"
+                }), /*#__PURE__*/(0,jsx_runtime.jsx)("i", {
+                  children: "Deleted"
                 })]
               })]
             }, index);
@@ -1322,8 +1350,8 @@ rootContainer.appendChild(rootElement);
 const openButton = document.createElement('div');
 openButton.id = 'dupeFinderOpen';
 openButton.classList.add('menu_button', 'fa-solid', 'fa-chart-bar', 'faSmallFontSquareFix');
-openButton.dataset.i18n = '[title]Open Duplicate Finder';
-openButton.title = 'Open Duplicate Finder';
+openButton.dataset.i18n = '[title]Find similar characters';
+openButton.title = 'Find similar characters';
 openButton.addEventListener('click', () => {
   eventEmitter.emit(EVENT_NAMES.OPEN_PANEL);
 });

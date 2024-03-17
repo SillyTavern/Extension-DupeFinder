@@ -9,6 +9,7 @@ const allowedKeys = new Set([
     'scenario',
     'personality',
     'first_mes',
+    'mes_example',
 ]);
 
 function similarity(x, y) {

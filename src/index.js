@@ -14,8 +14,8 @@ rootContainer.appendChild(rootElement);
 const openButton = document.createElement('div');
 openButton.id = 'dupeFinderOpen';
 openButton.classList.add('menu_button', 'fa-solid', 'fa-chart-bar', 'faSmallFontSquareFix');
-openButton.dataset.i18n = '[title]Open Duplicate Finder';
-openButton.title = 'Open Duplicate Finder';
+openButton.dataset.i18n = '[title]Find similar characters';
+openButton.title = 'Find similar characters';
 openButton.addEventListener('click', () => {
     eventEmitter.emit(EVENT_NAMES.OPEN_PANEL);
 });

@@ -6,6 +6,8 @@ const {
     selectCharacterById,
     getThumbnailUrl,
     timestampToMoment,
+    eventSource,
+    event_types,
 } = SillyTavern.getContext();
 
 const SLIDER_VALUE_KEY = 'DupeFinder_similarity_threshold';
@@ -17,9 +19,29 @@ function PanelBody() {
     const [sliderValue, setSliderValue] = React.useState(Number(initialSliderValue));
     const [worker, setWorker] = React.useState(null);
     const [progress, setProgress] = React.useState(null);
+    const [deletedCharacters, setDeletedCharacters] = React.useState([]);
+
+    React.useEffect(() => {
+        eventSource.on(event_types.CHARACTER_DELETED, characterDeleted);
+
+        return () => {
+            eventSource.removeListener(event_types.CHARACTER_DELETED, characterDeleted);
+        }
+    });
+
+    function characterDeleted(args) {
+        const avatar = args?.character?.avatar;
+
+        if (!avatar) {
+            return;
+        }
+
+        setDeletedCharacters(value => [...value, avatar]);
+    }
 
     function refresh() {
         setProgress(0);
+        setDeletedCharacters([]);
         const characters = SillyTavern.getContext().characters.slice();
         worker.postMessage({ threshold: sliderValue, characters: characters });
     }
@@ -112,16 +134,16 @@ function PanelBody() {
             }
 
             {
-                Array.isArray(data) && data.length === 0 && (
-                    <div>
+                progress == null && Array.isArray(data) && data.length === 0 && (
+                    <div className="textAlignCenter">
                         <h3>No characters found</h3>
                     </div>
                 )
             }
 
             {
-                Array.isArray(data) && data.length > 0 && data.filter(x => Array.isArray(x) && x.length > 1).length === 0 && (
-                    <div>
+                progress == null && Array.isArray(data) && data.length > 0 && data.filter(x => Array.isArray(x) && x.length > 1).length === 0 && (
+                    <div className="textAlignCenter">
                         <h3>No similar characters found</h3>
                     </div>
                 )
@@ -134,7 +156,7 @@ function PanelBody() {
                             <div class="flex-container flexFlowColumn">
                                 {group.map((character, index) => {
                                     return (
-                                        <div className="flex-container alignItemsCenter flexGap10" key={index}>
+                                        <div className={"flex-container alignItemsCenter flexGap10" + (deletedCharacters.includes(character.avatar) ? " grayscale opacity50p" : "")} key={index}>
                                             <div>
                                                 <div className="avatar">
                                                     <img src={getThumbnailUrl('avatar', character.avatar)} alt={character.name} />
@@ -150,10 +172,23 @@ function PanelBody() {
                                                     <span>Last chat: {timestampToMoment(character.date_last_chat).toString('LL LT')}</span>
                                                 </div>
                                             </div>
-                                            <div className="menu_button menu_button_icon" onClick={() => onSelectCharacterClick(character)}>
-                                                <i class="fa-solid fa-eye"></i>
-                                                <span>View</span>
-                                            </div>
+                                            {
+                                                !deletedCharacters.includes(character.avatar) && (
+                                                    <div className="menu_button menu_button_icon" onClick={() => onSelectCharacterClick(character)}>
+                                                        <i class="fa-solid fa-eye"></i>
+                                                        <span>View</span>
+                                                    </div>
+                                                )
+                                            }
+                                            {
+                                                deletedCharacters.includes(character.avatar) && (
+                                                    <div>
+                                                        <i class="fa-solid fa-trash"></i>
+                                                        <span>&nbsp;</span>
+                                                        <i>Deleted</i>
+                                                    </div>
+                                                )
+                                            }
                                         </div>
                                     )
                                 })}

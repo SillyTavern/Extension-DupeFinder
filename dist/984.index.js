@@ -570,7 +570,7 @@ var cluster_default = /*#__PURE__*/__webpack_require__.n(cluster);
 
 
 
-const allowedKeys = new Set(['name', 'description', 'scenario', 'personality', 'first_mes']);
+const allowedKeys = new Set(['name', 'description', 'scenario', 'personality', 'first_mes', 'mes_example']);
 function similarity(x, y) {
   let score = 0;
   let matchedKeys = 0;
