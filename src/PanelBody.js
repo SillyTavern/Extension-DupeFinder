@@ -1,6 +1,7 @@
 /* global SillyTavern */
 /* global toastr */
 import React from 'react';
+import { SettingsManager, SettingKeys, search_methods, character_fields } from './SettingsManager';
 
 const {
     selectCharacterById,
@@ -10,16 +11,20 @@ const {
     event_types,
 } = SillyTavern.getContext();
 
-const SLIDER_VALUE_KEY = 'DupeFinder_similarity_threshold';
-
 function PanelBody() {
-    const initialSliderValue = localStorage.getItem(SLIDER_VALUE_KEY) ?? 0.95;
+    const settingsManager = new SettingsManager();
+    const initialSliderValue = settingsManager.read(SettingKeys.SIMILARITY_THRESHOLD);
+    const initialMethod = settingsManager.read(SettingKeys.SIMILARITY_METHOD);
+    const initialFields = settingsManager.read(SettingKeys.SIMILARITY_FIELDS);
 
-    const [data, setData] = React.useState(null);
     const [sliderValue, setSliderValue] = React.useState(Number(initialSliderValue));
+    const [method, setMethod] = React.useState(initialMethod);
+    const [fields, setFields] = React.useState(initialFields);
     const [worker, setWorker] = React.useState(null);
     const [progress, setProgress] = React.useState(null);
     const [deletedCharacters, setDeletedCharacters] = React.useState([]);
+    const [data, setData] = React.useState(null);
+    const [isOpenFieldsPanel, setIsOpenFieldsPanel] = React.useState(false);
 
     React.useEffect(() => {
         eventSource.on(event_types.CHARACTER_DELETED, characterDeleted);
@@ -28,33 +33,6 @@ function PanelBody() {
             eventSource.removeListener(event_types.CHARACTER_DELETED, characterDeleted);
         }
     });
-
-    function characterDeleted(args) {
-        const avatar = args?.character?.avatar;
-
-        if (!avatar) {
-            return;
-        }
-
-        setDeletedCharacters(value => [...value, avatar]);
-    }
-
-    function refresh() {
-        setProgress(0);
-        setDeletedCharacters([]);
-        const characters = SillyTavern.getContext().characters.slice();
-        worker.postMessage({ threshold: sliderValue, characters: characters });
-    }
-
-    function onSelectCharacterClick(character) {
-        const context = SillyTavern.getContext();
-        const characterIndex = context.characters.findIndex(c => c.avatar === character.avatar);
-        if (characterIndex !== -1) {
-            selectCharacterById(characterIndex);
-        } else {
-            toastr.error('Character not found');
-        }
-    }
 
     React.useEffect(() => {
         const myWorker = new Worker(new URL('./clustering.js', import.meta.url));
@@ -87,9 +65,62 @@ function PanelBody() {
         };
     }, []);
 
+    function characterDeleted(args) {
+        const avatar = args?.character?.avatar;
+
+        if (!avatar) {
+            return;
+        }
+
+        setDeletedCharacters(value => [...value, avatar]);
+    }
+
+    function refresh() {
+        setProgress(0);
+        setDeletedCharacters([]);
+        const characters = SillyTavern.getContext().characters.slice();
+        const args = {
+            threshold: sliderValue,
+            characters: characters,
+            method: method,
+            fields: fields,
+        };
+        worker.postMessage(args);
+    }
+
+    function onSelectMethodClick(method) {
+        setMethod(method);
+        settingsManager.write(SettingKeys.SIMILARITY_METHOD, method);
+    }
+
     function onSliderUpdate(event) {
-        setSliderValue(Number(event.target.value));
-        localStorage.setItem(SLIDER_VALUE_KEY, event.target.value);
+        const value = Number(event.target.value);
+        setSliderValue(value);
+        settingsManager.write(SettingKeys.SIMILARITY_THRESHOLD, value);
+    }
+
+    function onSelectCharacterClick(character) {
+        const context = SillyTavern.getContext();
+        const characterIndex = context.characters.findIndex(c => c.avatar === character.avatar);
+        if (characterIndex !== -1) {
+            selectCharacterById(characterIndex);
+        } else {
+            toastr.error('Character not found');
+        }
+    }
+
+    function onFieldChange(field) {
+        if (fields.includes(field)) {
+            setFields(fields.filter(x => x !== field));
+        } else {
+            setFields([...fields, field]);
+        }
+
+        settingsManager.write(SettingKeys.SIMILARITY_FIELDS, fields);
+    }
+
+    function toggleFieldsPanel() {
+        setIsOpenFieldsPanel(value => !value);
     }
 
     return (
@@ -97,8 +128,22 @@ function PanelBody() {
             <div>
                 <h2>Similar Characters</h2>
             </div>
-            <div className="flex-container alignItemsCenter">
-                <div className="flex-container flexFlowColumn flex1 marginBot10">
+            <div className="flex-container alignItemsCenter marginBot5">
+                <div className="flex-container flexFlowColumn flex1">
+                    <label htmlFor="method">Similarity detection method:</label>
+                    {
+                        search_methods.map((item, index) => {
+                            return (
+                                <label key={index} htmlFor={"similarity_method_" + item.value} className="checkbox_label alignItemsCenter">
+                                    <input type="radio" id={"similarity_method_" + item.value} value={item.value} checked={method === item.value} onChange={() => onSelectMethodClick(item.value)} />
+                                    <span>{item.label}</span>
+                                    <i class="fa-solid fa-info-circle" title={item.description}></i>
+                                </label>
+                            );
+                        })
+                    }
+                </div>
+                <div className="flex-container flexFlowColumn flex1">
                     <label htmlFor="threshold">Similarity threshold: {Number(sliderValue).toFixed(2)}</label>
                     <input name="threshold" type="range" min="0" max="1" step="0.01" value={sliderValue} onChange={onSliderUpdate} />
                     <div class="slider_hint">
@@ -107,19 +152,41 @@ function PanelBody() {
                         <span>Exact match</span>
                     </div>
                 </div>
-                <div className="flex1">&nbsp;</div>
-                <div className="menu_button menu_button_icon" onClick={() => refresh()}>
-                    <i class="fa-solid fa-sync"></i>
-                    <span>Calculate</span>
+                <div className="flex-container flexFlowColumn flex1 flexNoGap alignItemsFlexEnd">
+                    <div className="menu_button menu_button_icon" onClick={() => toggleFieldsPanel()}>
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>Configure Fields</span>
+                    </div>
+                    <div className="menu_button menu_button_icon" onClick={() => refresh()}>
+                        <i class="fa-solid fa-sync"></i>
+                        <span>Calculate</span>
+                    </div>
                 </div>
             </div>
+
+            {
+                isOpenFieldsPanel && (
+                    <div className="options-content marginBot5">
+                        {
+                            character_fields.map((item, index) => {
+                                return (
+                                    <label key={index} className="checkbox_label list-group-item" htmlFor={"similarity_field_" + item.value}>
+                                        <input type="checkbox" id={"similarity_field_" + item.value} checked={fields.includes(item.value)} onChange={() => onFieldChange(item.value)} />
+                                        <span>{item.label}</span>
+                                    </label>
+                                );
+                            })
+                        }
+                    </div>
+                )
+            }
 
             {
                 !Array.isArray(data) && progress === null && (
                     <div className="textAlignCenter">
                         <h3>Instructions</h3>
                         <p>Use the slider to set the similarity threshold and click the "Calculate" button to see the similar characters.</p>
-                        <p><strong>Warning:</strong> This operation can take several minutes to complete.</p>
+                        <p><strong>Warning:</strong> This operation may take several minutes to complete.</p>
                     </div>
                 )
             }
