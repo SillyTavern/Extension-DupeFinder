@@ -4,9 +4,9 @@
     "requires": [],
     "optional": [],
     "js": "dist/index.js",
-    "css": "dist/style.css",
+    "css": "",
     "author": "Cohee1207",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "homePage": "https://github.com/SillyTavern/Extension-DupeFinder",
     "auto_update": true
 }
